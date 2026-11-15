@@ -17,6 +17,7 @@ local palette = {
 local inventoryRemote, inventoryPanel, helpPanel, detailLabel, useButton, ammoLabel
 local slots, items = {}, {}
 local selectedIndex = nil
+local equippedItemId = nil
 local panelOpen = nil
 local buttons = {}
 
@@ -59,6 +60,7 @@ local function updateFlashlight()
 end
 local function renderInventory(data,equipped)
 	items=data or {}
+	equippedItemId=equipped
 	for i=1,20 do
 		local item=items[i]
 		local b=slots[i]
@@ -139,7 +141,7 @@ function HUD.Init()
 			if item then
 				detailLabel.Text=item.name.."  |  "..(item.category or "Item").."\n"..(item.description or "")
 				useButton.Visible=item.id=="MEDKIT"
-				inventoryRemote:FireServer("Equip",i)
+				if item.id==equippedItemId then inventoryRemote:FireServer("Unequip") else inventoryRemote:FireServer("Equip",i) end
 			else
 				detailLabel.Text="Espaço vazio."; useButton.Visible=false
 			end
