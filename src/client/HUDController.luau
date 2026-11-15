@@ -129,7 +129,7 @@ function HUD.Init()
 		Text="INVENTÁRIO  /  20 ESPAÇOS",TextColor3=palette.text,Font=Enum.Font.GothamBold,TextSize=17,TextXAlignment=Enum.TextXAlignment.Left},inventoryPanel)
 	local closeInv=button(inventoryPanel,"Close","X",UDim2.new(1,-48,0,10),UDim2.fromOffset(34,30))
 	local grid=make("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(16,54),Size=UDim2.new(1,-32,0,224)},inventoryPanel)
-	make("UIGridLayout",{CellSize=UDim2.new(0.19,0,0,48),CellPadding=UDim2.new(0.012,0,0,7),SortOrder=Enum.SortOrder.LayoutOrder},grid)
+	make("UIGridLayout",{CellSize=UDim2.new(0.18,0,0,48),CellPadding=UDim2.new(0.01,0,0,7),SortOrder=Enum.SortOrder.LayoutOrder},grid)
 	for i=1,20 do
 		local b=button(grid,"Slot"..i,string.format("%02d\nVAZIO",i),UDim2.new(),UDim2.fromOffset(60,48))
 		b.LayoutOrder=i; b.TextSize=10; slots[i]=b
