@@ -134,6 +134,8 @@ function InventoryService.Init()
 				if humanoid and tool then humanoid:EquipTool(tool) end
 				player:SetAttribute("DZ_EquippedItem", item.id)
 			else
+				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+				if humanoid then humanoid:UnequipTools() end
 				player:SetAttribute("DZ_EquippedItem", item.id)
 			end
 			send(player)
