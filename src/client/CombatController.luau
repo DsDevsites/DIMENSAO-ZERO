@@ -7,6 +7,7 @@ local player = Players.LocalPlayer
 local remotes
 local equippedTool
 local connections = {}
+local firing = false
 
 local function disconnectAll()
 	for _, connection in ipairs(connections) do connection:Disconnect() end
@@ -23,9 +24,20 @@ end
 local function bindTool(tool)
 	if tool.Name~="DZ-01" or not tool:IsA("Tool") then return end
 	equippedTool=tool
+	firing=false
 	disconnectAll()
-	table.insert(connections,tool.Activated:Connect(fire))
-	table.insert(connections,tool.Unequipped:Connect(function() equippedTool=nil end))
+	table.insert(connections,tool.Activated:Connect(function()
+		if firing then return end
+		firing=true
+		task.spawn(function()
+			while firing and equippedTool==tool and tool.Parent==player.Character do
+				fire()
+				task.wait(0.12)
+			end
+		end)
+	end))
+	table.insert(connections,tool.Deactivated:Connect(function() firing=false end))
+	table.insert(connections,tool.Unequipped:Connect(function() firing=false; equippedTool=nil end))
 end
 
 function CombatController.Init()
