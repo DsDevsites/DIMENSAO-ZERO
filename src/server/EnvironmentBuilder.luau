@@ -44,8 +44,8 @@ local function pipe(parent, name, a, b, radius, color)
 	local delta = b - a
 	local length = delta.Magnitude
 	local center = (a + b) / 2
-	local cf = CFrame.lookAt(center, b) * CFrame.Angles(math.rad(90), 0, 0)
-	return makePart(parent, name, Vector3.new(radius * 2, length, radius * 2), cf, color, Enum.Material.Metal, false, Enum.PartType.Cylinder)
+	local cf = CFrame.lookAt(center, b) * CFrame.Angles(0, math.rad(90), 0)
+	return makePart(parent, name, Vector3.new(length, radius * 2, radius * 2), cf, color, Enum.Material.Metal, false, Enum.PartType.Cylinder)
 end
 
 local function addStrip(parent, position, size, color)
