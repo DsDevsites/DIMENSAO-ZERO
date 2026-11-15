@@ -35,6 +35,17 @@ function CombatController.Init()
 		if typeof(data)=="table" then
 			player:SetAttribute("DZ_AmmoInMagazine",data.Ammo)
 			player:SetAttribute("DZ_AmmoReserve",data.Reserve)
+			if data.Type=="Shot" and player.Character then
+				local tool=player.Character:FindFirstChild("DZ-01")
+				local barrel=tool and tool:FindFirstChild("Barrel")
+				local flash=barrel and barrel:FindFirstChild("DZ_MuzzleFlash")
+				if flash then
+					flash.Enabled=true
+					task.delay(0.045,function() if flash.Parent then flash.Enabled=false end end)
+				end
+				local camera=workspace.CurrentCamera
+				if camera then camera.CFrame=camera.CFrame*CFrame.Angles(math.rad(-0.35),0,0) end
+			end
 		end
 	end)
 	local function watchCharacter(character)
