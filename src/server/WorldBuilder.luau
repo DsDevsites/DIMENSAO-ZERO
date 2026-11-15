@@ -1,167 +1,162 @@
--- Construtor procedural do SETOR 01. A geometria e criada no servidor.
+-- SETOR 01: construcao procedural modular, fechada e com salas conectadas.
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
-
 local WorldBuilder = {}
-local ROOT_NAME = "DIMENSAO_ZERO_WORLD"
+local ROOT = "DIMENSAO_ZERO_WORLD"
 
 local C = {
-    floor = Color3.fromRGB(38, 45, 52),
-    wall = Color3.fromRGB(65, 75, 83),
-    dark = Color3.fromRGB(19, 25, 31),
-    orange = Color3.fromRGB(255, 111, 35),
-    cyan = Color3.fromRGB(40, 205, 220),
-    white = Color3.fromRGB(205, 218, 225),
+	floor=Color3.fromRGB(58,64,70), floorAlt=Color3.fromRGB(43,49,55),
+	wall=Color3.fromRGB(103,111,118), dark=Color3.fromRGB(27,32,37),
+	trim=Color3.fromRGB(132,140,145), white=Color3.fromRGB(205,211,214),
+	blue=Color3.fromRGB(82,125,151), green=Color3.fromRGB(75,135,101),
+	yellow=Color3.fromRGB(190,145,58), red=Color3.fromRGB(150,57,52),
 }
 
-local function part(parent, name, size, position, color, material)
-    local p = Instance.new("Part")
-    p.Name = name
-    p.Size = size
-    p.Position = position
-    p.Anchored = true
-    p.TopSurface = Enum.SurfaceType.Smooth
-    p.BottomSurface = Enum.SurfaceType.Smooth
-    p.Color = color
-    p.Material = material or Enum.Material.Concrete
-    p.Parent = parent
-    return p
+local function part(parent,name,size,pos,color,material,collide)
+	local p=Instance.new("Part")
+	p.Name=name; p.Size=size; p.Position=pos; p.Anchored=true
+	p.TopSurface=Enum.SurfaceType.Smooth; p.BottomSurface=Enum.SurfaceType.Smooth
+	p.Color=color; p.Material=material or Enum.Material.Metal
+	p.CanCollide=collide ~= false; p.Parent=parent
+	return p
 end
 
-local function light(parent, color, brightness, range)
-    local lamp = Instance.new("PointLight")
-    lamp.Color = color
-    lamp.Brightness = brightness
-    lamp.Range = range
-    lamp.Shadows = true
-    lamp.Parent = parent
+local function pointLight(parent,color,brightness,range)
+	local l=Instance.new("PointLight"); l.Color=color; l.Brightness=brightness; l.Range=range; l.Shadows=true; l.Parent=parent
 end
 
-local function label(parent, text, face)
-    local gui = Instance.new("SurfaceGui")
-    gui.Name = "SignGui"
-    gui.Face = face or Enum.NormalId.Front
-    gui.CanvasSize = Vector2.new(600, 180)
-    gui.Parent = parent
-    local txt = Instance.new("TextLabel")
-    txt.Size = UDim2.fromScale(1, 1)
-    txt.BackgroundColor3 = C.dark
-    txt.BackgroundTransparency = 0.12
-    txt.Text = text
-    txt.TextColor3 = C.orange
-    txt.Font = Enum.Font.GothamBold
-    txt.TextScaled = true
-    txt.Parent = gui
+local function sign(parent,text,pos,width,color)
+	local board=part(parent,"SectorSign",Vector3.new(width,3.2,0.35),pos,C.dark,Enum.Material.Metal)
+	local gui=Instance.new("SurfaceGui"); gui.Face=Enum.NormalId.Front; gui.CanvasSize=Vector2.new(600,180); gui.Parent=board
+	local label=Instance.new("TextLabel"); label.Size=UDim2.fromScale(1,1); label.BackgroundTransparency=1
+	label.Text=text; label.TextColor3=color or C.white; label.Font=Enum.Font.GothamBold; label.TextScaled=true; label.Parent=gui
+	return board
+end
+
+local function lamp(parent,pos,color)
+	local fixture=part(parent,"IndustrialLuminaire",Vector3.new(5.5,0.25,1.1),pos,C.white,Enum.Material.Metal,false)
+	local face=part(parent,"LuminaireLens",Vector3.new(4.8,0.08,0.72),pos+Vector3.new(0,-0.17,0),color,Enum.Material.SmoothPlastic,false)
+	pointLight(face,color,1.35,25)
+end
+
+local function room(parent,name,cx,cz,w,d,doorSide)
+	local folder=Instance.new("Folder"); folder.Name=name; folder.Parent=parent
+	local yFloor=-0.5
+	part(folder,name.."_Floor",Vector3.new(w,1,d),Vector3.new(cx,yFloor,cz),C.floor,Enum.Material.DiamondPlate)
+	part(folder,name.."_Ceiling",Vector3.new(w,1,d),Vector3.new(cx,16.5,cz),C.dark,Enum.Material.Metal)
+	local t=1.2
+	if doorSide=="South" then
+		part(folder,"NorthWall",Vector3.new(w,17,t),Vector3.new(cx,8,cz-d/2),C.wall)
+		part(folder,"SouthLeft",Vector3.new((w-12)/2,17,t),Vector3.new(cx-(w+12)/4,8,cz+d/2),C.wall)
+		part(folder,"SouthRight",Vector3.new((w-12)/2,17,t),Vector3.new(cx+(w+12)/4,8,cz+d/2),C.wall)
+		part(folder,"SouthLintel",Vector3.new(12,4,t),Vector3.new(cx,14,cz+d/2),C.wall)
+	else
+		part(folder,"NorthWall",Vector3.new(w,17,t),Vector3.new(cx,8,cz-d/2),C.wall)
+		part(folder,"SouthWall",Vector3.new(w,17,t),Vector3.new(cx,8,cz+d/2),C.wall)
+	end
+	part(folder,"WestWall",Vector3.new(t,17,d),Vector3.new(cx-w/2,8,cz),C.wall)
+	part(folder,"EastWall",Vector3.new(t,17,d),Vector3.new(cx+w/2,8,cz),C.wall)
+	for x=cx-w/2+6,cx+w/2-6,12 do lamp(folder,Vector3.new(x,15.85,cz),C.white) end
+	sign(folder,name:upper(),Vector3.new(cx,11,cz-d/2+0.75),math.min(w-4,24),C.blue)
+	return folder
 end
 
 local function configureLighting()
-    Lighting.ClockTime = 14
-    Lighting.Brightness = 2.1
-    Lighting.Ambient = Color3.fromRGB(72, 82, 94)
-    Lighting.OutdoorAmbient = Color3.fromRGB(38, 45, 55)
-    Lighting.FogColor = Color3.fromRGB(25, 35, 43)
-    Lighting.FogStart = 120
-    Lighting.FogEnd = 360
-    Lighting.GlobalShadows = true
-    Lighting.Technology = Enum.Technology.Future
-    Lighting.ExposureCompensation = -0.15
-
-    local atmosphere = Lighting:FindFirstChild("DZ_Atmosphere")
-    if not atmosphere then
-        atmosphere = Instance.new("Atmosphere")
-        atmosphere.Name = "DZ_Atmosphere"
-        atmosphere.Parent = Lighting
-    end
-    atmosphere.Color = Color3.fromRGB(155, 185, 200)
-    atmosphere.Decay = Color3.fromRGB(55, 75, 90)
-    atmosphere.Density = 0.18
-    atmosphere.Glare = 0
-    atmosphere.Haze = 1
+	Lighting.ClockTime=0
+	Lighting.Brightness=2.2
+	Lighting.Ambient=Color3.fromRGB(78,84,91)
+	Lighting.OutdoorAmbient=Color3.fromRGB(55,61,68)
+	Lighting.FogColor=Color3.fromRGB(31,37,43)
+	Lighting.FogStart=150; Lighting.FogEnd=520
+	Lighting.GlobalShadows=true
+	Lighting.ExposureCompensation=0
+	pcall(function() Lighting.Technology=Enum.Technology.Future end)
+	local atmosphere=Lighting:FindFirstChild("DZ_Atmosphere") or Instance.new("Atmosphere")
+	atmosphere.Name="DZ_Atmosphere"; atmosphere.Color=Color3.fromRGB(174,184,190)
+	atmosphere.Decay=Color3.fromRGB(66,75,83); atmosphere.Density=0.12
+	atmosphere.Glare=0; atmosphere.Haze=0.8; atmosphere.Parent=Lighting
+	local cc=Lighting:FindFirstChild("DZ_ColorCorrection") or Instance.new("ColorCorrectionEffect")
+	cc.Name="DZ_ColorCorrection"; cc.Brightness=0.015; cc.Contrast=0.08; cc.Saturation=-0.12; cc.Parent=Lighting
 end
 
 local function build()
-    local old = Workspace:FindFirstChild(ROOT_NAME)
-    if old then old:Destroy() end
+	local old=Workspace:FindFirstChild(ROOT); if old then old:Destroy() end
+	local root=Instance.new("Folder"); root.Name=ROOT; root.Parent=Workspace
 
-    local root = Instance.new("Folder")
-    root.Name = ROOT_NAME
-    root.Parent = Workspace
+	-- Bloco principal com perímetro contínuo e um único corredor de entrada controlado.
+	part(root,"MainFloor",Vector3.new(112,1,88),Vector3.new(0,-0.5,0),C.floor,Enum.Material.DiamondPlate)
+	part(root,"MainCeiling",Vector3.new(112,1,88),Vector3.new(0,16.5,0),C.dark,Enum.Material.Metal)
+	part(root,"NorthBoundary",Vector3.new(112,17,1.5),Vector3.new(0,8,-44),C.wall)
+	part(root,"WestBoundary",Vector3.new(1.5,17,88),Vector3.new(-56,8,0),C.wall)
+	part(root,"EastBoundary",Vector3.new(1.5,17,88),Vector3.new(56,8,0),C.wall)
+	-- Parede sul segmentada com abertura central que conecta ao corredor interno.
+	part(root,"SouthBoundaryLeft",Vector3.new(47,17,1.5),Vector3.new(-32.5,8,44),C.wall)
+	part(root,"SouthBoundaryRight",Vector3.new(47,17,1.5),Vector3.new(32.5,8,44),C.wall)
+	part(root,"SouthLintel",Vector3.new(18,4,1.5),Vector3.new(0,14,44),C.wall)
+	-- Corredor de acesso fechado no fim; sem saída para o exterior.
+	part(root,"EntryFloor",Vector3.new(18,1,34),Vector3.new(0,-0.5,61),C.floor,Enum.Material.DiamondPlate)
+	part(root,"EntryCeiling",Vector3.new(18,1,34),Vector3.new(0,16.5,61),C.dark,Enum.Material.Metal)
+	part(root,"EntryLeft",Vector3.new(1.5,17,34),Vector3.new(-9,8,61),C.wall)
+	part(root,"EntryRight",Vector3.new(1.5,17,34),Vector3.new(9,8,61),C.wall)
+	part(root,"EntryEndWall",Vector3.new(18,17,1.5),Vector3.new(0,8,78),C.wall)
+	sign(root,"DIMENSÃO ZERO  |  SETOR 01",Vector3.new(0,12,42.9),24,C.white)
 
-    -- Sala principal: 100 x 72 studs.
-    part(root, "MainFloor", Vector3.new(100, 2, 72), Vector3.new(0, -1, 0), C.floor, Enum.Material.Metal)
-    part(root, "Ceiling", Vector3.new(100, 2, 72), Vector3.new(0, 18, 0), C.dark, Enum.Material.Metal)
-    part(root, "NorthWall", Vector3.new(100, 20, 2), Vector3.new(0, 8, -37), C.wall)
-    -- A parede sul agora possui abertura central alinhada ao corredor.
-    part(root, "SouthWallLeft", Vector3.new(41, 20, 2), Vector3.new(-29.5, 8, 37), C.wall)
-    part(root, "SouthWallRight", Vector3.new(41, 20, 2), Vector3.new(29.5, 8, 37), C.wall)
-    part(root, "SouthWallLintel", Vector3.new(18, 5, 2), Vector3.new(0, 15.5, 37), C.wall)
-    part(root, "WestWall", Vector3.new(2, 20, 72), Vector3.new(-51, 8, 0), C.wall)
-    part(root, "EastWall", Vector3.new(2, 20, 72), Vector3.new(51, 8, 0), C.wall)
+	-- Paredes internas delimitam alas; as salas laterais são ambientes completos.
+	room(root,"RECEPÇÃO DE SEGURANÇA",-34, -23,38,34,"South")
+	room(root,"ENFERMARIA",34,-23,38,34,"South")
+	room(root,"ARSENAL",-34,23,38,34,nil)
+	room(root,"SALA DE CONTROLE",34,23,38,34,nil)
 
-    -- Corredor aberto conectado a sala principal.
-    part(root, "EntryFloor", Vector3.new(24, 2, 34), Vector3.new(0, -1, 53), C.floor, Enum.Material.Metal)
-    part(root, "EntryLeftWall", Vector3.new(2, 20, 34), Vector3.new(-13, 8, 53), C.wall)
-    part(root, "EntryRightWall", Vector3.new(2, 20, 34), Vector3.new(13, 8, 53), C.wall)
-    part(root, "EntryCeiling", Vector3.new(28, 2, 34), Vector3.new(0, 18, 53), C.dark, Enum.Material.Metal)
+	-- Corredor central de ligação e zonas funcionais no núcleo.
+	part(root,"CentralWalkway",Vector3.new(28,0.35,72),Vector3.new(0,0.2,0),C.floorAlt,Enum.Material.Metal,false)
+	for _,z in ipairs({-30,-10,10,30}) do
+		local strip=part(root,"FloorGuidance",Vector3.new(0.18,0.04,4),Vector3.new(0,0.4,z),C.yellow,Enum.Material.SmoothPlastic,false)
+	end
+	-- Reator central como elemento industrial decorativo.
+	local reactor=Instance.new("Model"); reactor.Name="REATOR CENTRAL"; reactor.Parent=root
+	local core=part(reactor,"ReactorCore",Vector3.new(10,12,10),Vector3.new(0,6,-4),C.dark,Enum.Material.Metal)
+	for _,x in ipairs({-6,6}) do
+		part(reactor,"ReactorSupport",Vector3.new(1.1,15,1.1),Vector3.new(x,7.5,-4),C.trim,Enum.Material.Metal)
+	end
+	local status=part(reactor,"ReactorStatus",Vector3.new(7,0.25,0.25),Vector3.new(0,10,-9.2),C.green,Enum.Material.SmoothPlastic,false)
+	pointLight(status,C.green,0.6,10)
 
-    -- Divisorias laterais, preservando corredores de passagem.
-    part(root, "LabPartitionA", Vector3.new(2, 15, 26), Vector3.new(22, 6.5, -22), C.wall)
-    part(root, "LabPartitionB", Vector3.new(28, 15, 2), Vector3.new(36, 6.5, -9), C.wall)
-    part(root, "ControlPartition", Vector3.new(2, 15, 24), Vector3.new(-25, 6.5, -24), C.wall)
+	-- Manutenção e depósito em compartimentos fechados, acessíveis pelo núcleo.
+	local maintenance=room(root,"MANUTENÇÃO",-34,0,34,24,nil)
+	for i=1,4 do
+		part(maintenance,"ToolBench",Vector3.new(5,1.2,2),Vector3.new(-44+i*5,1,0),C.dark,Enum.Material.Metal)
+	end
+	local storage=room(root,"DEPÓSITO",34,0,34,24,nil)
+	for _,x in ipairs({25,34,43}) do
+		for z=-7,7,7 do
+			part(storage,"SupplyShelf",Vector3.new(1,7,2),Vector3.new(x,3.5,z),C.trim,Enum.Material.Metal)
+			part(storage,"SupplyCrate",Vector3.new(2.2,2,2),Vector3.new(x-1.6,1.1,z),C.dark,Enum.Material.Metal)
+		end
+	end
+	-- Sala de observação elevada no fundo, com janela reforçada decorativa.
+	local observation=room(root,"OBSERVAÇÃO",0,-31,25,20,nil)
+	local glass=part(observation,"ReinforcedGlass",Vector3.new(18,8,0.35),Vector3.new(0,7,-40.3),C.blue,Enum.Material.Glass,false)
+	glass.Transparency=0.48
 
-    for z = -30, 30, 12 do
-        part(root, "FloorSafetyLine", Vector3.new(1, 0.12, 5), Vector3.new(-43, 0.08, z), C.orange, Enum.Material.Neon)
-        part(root, "FloorSafetyLine", Vector3.new(1, 0.12, 5), Vector3.new(43, 0.08, z), C.orange, Enum.Material.Neon)
-    end
+	-- Detalhes industriais, rodapés, painéis e luminárias sem neon exagerado.
+	for _,x in ipairs({-48,-18,18,48}) do
+		for _,z in ipairs({-36,0,36}) do
+			local pillar=part(root,"StructuralColumn",Vector3.new(2.4,16,2.4),Vector3.new(x,8,z),C.dark,Enum.Material.Metal)
+			part(root,"ColumnBand",Vector3.new(2.5,0.35,2.5),Vector3.new(x,13,z),C.yellow,Enum.Material.Metal,false)
+		end
+	end
 
-    for _, x in ipairs({-42, -18, 18, 42}) do
-        for _, z in ipairs({-29, 29}) do
-            part(root, "SupportPillar", Vector3.new(3, 18, 3), Vector3.new(x, 8, z), C.dark, Enum.Material.Metal)
-            local strip = part(root, "PillarLight", Vector3.new(0.25, 8, 0.25), Vector3.new(x, 9, z + 1.63), C.cyan, Enum.Material.Neon)
-            light(strip, C.cyan, 1.2, 16)
-        end
-    end
+	local spawn=Instance.new("SpawnLocation")
+	spawn.Name="Setor01Spawn"; spawn.Size=Vector3.new(6,1,6)
+	spawn.Position=Vector3.new(0,0.55,29); spawn.Anchored=true
+	spawn.Neutral=true; spawn.Duration=0; spawn.Transparency=1
+	spawn.CanCollide=false; spawn.CastShadow=false; spawn.Parent=root
 
-    -- Iluminacao de teto mais forte, sem perder o clima subterraneo.
-    for _, x in ipairs({-35, -12, 12, 35}) do
-        for _, z in ipairs({-22, 0, 22}) do
-            local fixture = part(root, "CeilingLamp", Vector3.new(7, 0.35, 1.2), Vector3.new(x, 16.8, z), C.cyan, Enum.Material.Neon)
-            light(fixture, C.cyan, 2.2, 34)
-        end
-    end
-    for _, z in ipairs({43, 58, 68}) do
-        local fixture = part(root, "CorridorLamp", Vector3.new(5, 0.3, 1), Vector3.new(0, 16.8, z), C.white, Enum.Material.Neon)
-        light(fixture, C.white, 2, 30)
-    end
-
-    -- Spawn dentro da sala principal, livre de paredes e consoles.
-    local spawn = Instance.new("SpawnLocation")
-    spawn.Name = "Setor01Spawn"
-    spawn.Size = Vector3.new(6, 1, 6)
-    spawn.Position = Vector3.new(0, 0.5, 22)
-    spawn.Anchored = true
-    spawn.Neutral = true
-    spawn.Duration = 1
-    spawn.Transparency = 0.35
-    spawn.Color = C.orange
-    spawn.Material = Enum.Material.Neon
-    spawn.Parent = root
-
-    local sign = part(root, "SectorSign", Vector3.new(18, 5, 0.5), Vector3.new(0, 12, 35.7), C.dark, Enum.Material.Metal)
-    label(sign, "DIMENSAO ZERO  |  SETOR 01", Enum.NormalId.Front)
-
-    for _, x in ipairs({-37, -30, 30, 37}) do
-        local desk = part(root, "ResearchConsole", Vector3.new(7, 3, 3), Vector3.new(x, 1.5, -20), C.dark, Enum.Material.Metal)
-        local screen = part(root, "ConsoleScreen", Vector3.new(5.5, 1.5, 0.18), Vector3.new(x, 3.8, -18.4), C.cyan, Enum.Material.Neon)
-        light(screen, C.cyan, 0.8, 12)
-    end
-
-    configureLighting()
+	configureLighting()
 end
 
 function WorldBuilder.Init()
-    build()
-    print("[DIMENSAO ZERO] SETOR 01 construido: iluminacao revisada, entrada livre e spawn interno.")
+	build()
+	print("[DIMENSÃO ZERO] SETOR 01 gerado. Verifique rotas e colisões no Studio antes de publicar.")
 end
-
 return WorldBuilder
