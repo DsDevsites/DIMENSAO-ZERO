@@ -7,7 +7,7 @@ local function makePart(parent, name, size, offset, color, material, shape)
 	local part = Instance.new("Part")
 	part.Name = name
 	part.Size = size
-	part.CFrame = CFrame.new(offset)
+	part.CFrame = CFrame.new(offset) * (shape and CFrame.Angles(0, math.rad(90), 0) or CFrame.new())
 	part.Color = color
 	part.Material = material or Enum.Material.Metal
 	part.TopSurface = Enum.SurfaceType.Smooth
@@ -131,7 +131,7 @@ local function createWeapon()
 	local flash = Instance.new("ParticleEmitter")
 	flash.Name = "DZ_MuzzleFlash"
 	flash.Enabled = false
-	flash.Rate = 0
+	flash.Rate = 65
 	flash.Lifetime = NumberRange.new(0.035, 0.06)
 	flash.Speed = NumberRange.new(0, 0)
 	flash.LightEmission = 1
