@@ -1,6 +1,6 @@
--- Cria e centraliza os RemoteEvents utilizados pelo jogo.
+-- Centraliza os RemoteEvents do jogo.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Constants = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Constants"))
+local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 
 local RemoteService = {}
 
@@ -26,6 +26,8 @@ function RemoteService.Init()
         CombatRequest = getOrCreateRemote(Constants.CombatRequestName),
         CombatFeedback = getOrCreateRemote(Constants.CombatFeedbackName),
         ReloadRequest = getOrCreateRemote(Constants.ReloadRequestName),
+        InventoryRequest = getOrCreateRemote("InventoryRequest"),
+        InventoryUpdate = getOrCreateRemote("InventoryUpdate"),
     }
 end
 
