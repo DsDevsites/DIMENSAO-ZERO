@@ -22,6 +22,8 @@ local cameraButton
 local healthFill
 local healthText
 local inventorySlots = {}
+local inventoryItems = {}
+local equippedItemId = nil
 local panelOpen = nil
 local helpShownThisSession = false
 
@@ -128,6 +130,8 @@ local function bindCharacter(character)
 end
 
 local function renderInventory(slots, equippedItem)
+    inventoryItems = slots
+    equippedItemId = equippedItem
     for index = 1, 20 do
         local item = slots[index]
         local button = inventorySlots[index]
@@ -237,7 +241,14 @@ function HUDController.Init()
         slot.LayoutOrder = index
         slot.TextSize = 10
         inventorySlots[index] = slot
-        slot.Activated:Connect(function() inventoryRequest:FireServer("Equip", index) end)
+        slot.Activated:Connect(function()
+            local selectedItem = inventoryItems[index]
+            if selectedItem and selectedItem.id == equippedItemId then
+                inventoryRequest:FireServer("Unequip")
+            else
+                inventoryRequest:FireServer("Equip", index)
+            end
+        end)
     end
     invClose.Activated:Connect(closePanels)
 
