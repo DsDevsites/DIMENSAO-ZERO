@@ -134,21 +134,19 @@ local function build()
 	local status=part(reactor,"ReactorStatus",Vector3.new(7,0.25,0.25),Vector3.new(0,10,-9.2),C.green,Enum.Material.SmoothPlastic,false)
 	pointLight(status,C.green,0.6,10)
 
-	-- Manutenção e depósito em compartimentos fechados, acessíveis pelo núcleo.
-	local maintenance=room(root,"MANUTENÇÃO",-34,0,34,24,"East")
+	-- Bancadas e armários de apoio ficam dentro das alas, sem criar salas sobrepostas.
 	for i=1,4 do
-		part(maintenance,"ToolBench",Vector3.new(5,1.2,2),Vector3.new(-44+i*5,1,0),C.dark,Enum.Material.Metal)
+		part(root,"MaintenanceBench",Vector3.new(5,1.1,2),Vector3.new(-45+i*5,1.1,27),C.dark,Enum.Material.Metal)
+		part(root,"MaintenanceToolCabinet",Vector3.new(2,5,2),Vector3.new(-47+i*7,2.5,36),C.trim,Enum.Material.Metal)
 	end
-	local storage=room(root,"DEPÓSITO",34,0,34,24,"West")
 	for _,x in ipairs({25,34,43}) do
-		for z=-7,7,7 do
-			part(storage,"SupplyShelf",Vector3.new(1,7,2),Vector3.new(x,3.5,z),C.trim,Enum.Material.Metal)
-			part(storage,"SupplyCrate",Vector3.new(2.2,2,2),Vector3.new(x-1.6,1.1,z),C.dark,Enum.Material.Metal)
+		for z=17,31,7 do
+			part(root,"SupplyShelf",Vector3.new(1,6,2),Vector3.new(x,3,z),C.trim,Enum.Material.Metal)
+			part(root,"SupplyCrate",Vector3.new(2.2,2,2),Vector3.new(x-1.6,1,z),C.dark,Enum.Material.Metal)
 		end
 	end
-	-- Sala de observação elevada no fundo, com janela reforçada decorativa.
-	local observation=room(root,"OBSERVAÇÃO",0,-31,25,20,nil)
-	local glass=part(observation,"ReinforcedGlass",Vector3.new(18,8,0.35),Vector3.new(0,7,-40.3),C.blue,Enum.Material.Glass,false)
+	-- Janela de observação reforçada embutida na parede norte.
+	local glass=part(root,"ObservationGlass",Vector3.new(18,7,0.35),Vector3.new(0,8,-43.15),C.blue,Enum.Material.Glass,false)
 	glass.Transparency=0.48
 
 	-- Detalhes industriais, rodapés, painéis e luminárias sem neon exagerado.
