@@ -92,17 +92,26 @@ function HUDController.Init()
     }, gui)
     create("UICorner", { CornerRadius = UDim.new(0, 8) }, cameraButton)
 
-    local function updateHealth()
-        local character = player.Character
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            healthText.Text = string.format("VIDA %d / %d",
-                math.floor(humanoid.Health + 0.5), math.floor(humanoid.MaxHealth + 0.5))
-            healthText.TextColor3 = humanoid.Health <= 30
-                and Color3.fromRGB(245, 90, 80)
-                or Color3.fromRGB(110, 220, 145)
-            humanoid.HealthChanged:Connect(updateHealth)
+    local function refreshHealth(humanoid)
+        if not humanoid or not humanoid.Parent then
+            return
         end
+        healthText.Text = string.format("VIDA %d / %d",
+            math.floor(humanoid.Health + 0.5), math.floor(humanoid.MaxHealth + 0.5))
+        healthText.TextColor3 = humanoid.Health <= 30
+            and Color3.fromRGB(245, 90, 80)
+            or Color3.fromRGB(110, 220, 145)
+    end
+
+    local function bindCharacter(character)
+        local humanoid = character:WaitForChild("Humanoid", 10)
+        if not humanoid then
+            return
+        end
+        refreshHealth(humanoid)
+        humanoid.HealthChanged:Connect(function()
+            refreshHealth(humanoid)
+        end)
     end
 
     local function updateCameraButton()
@@ -116,12 +125,9 @@ function HUDController.Init()
         updateCameraButton()
     end)
 
-    player.CharacterAdded:Connect(function()
-        task.wait(0.2)
-        updateHealth()
-    end)
+    player.CharacterAdded:Connect(bindCharacter)
     if player.Character then
-        updateHealth()
+        task.spawn(bindCharacter, player.Character)
     end
 
     updateCameraButton()
