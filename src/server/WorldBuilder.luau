@@ -54,8 +54,20 @@ local function room(parent,name,cx,cz,w,d,doorSide)
 		part(folder,"NorthWall",Vector3.new(w,17,t),Vector3.new(cx,8,cz-d/2),C.wall)
 		part(folder,"SouthWall",Vector3.new(w,17,t),Vector3.new(cx,8,cz+d/2),C.wall)
 	end
-	part(folder,"WestWall",Vector3.new(t,17,d),Vector3.new(cx-w/2,8,cz),C.wall)
-	part(folder,"EastWall",Vector3.new(t,17,d),Vector3.new(cx+w/2,8,cz),C.wall)
+	if doorSide=="East" then
+		part(folder,"WestWall",Vector3.new(t,17,d),Vector3.new(cx-w/2,8,cz),C.wall)
+		part(folder,"EastLower",Vector3.new(t,17,(d-12)/2),Vector3.new(cx+w/2,8,cz-(d+12)/4),C.wall)
+		part(folder,"EastUpper",Vector3.new(t,17,(d-12)/2),Vector3.new(cx+w/2,8,cz+(d+12)/4),C.wall)
+		part(folder,"EastLintel",Vector3.new(t,4,12),Vector3.new(cx+w/2,14,cz),C.wall)
+	elseif doorSide=="West" then
+		part(folder,"EastWall",Vector3.new(t,17,d),Vector3.new(cx+w/2,8,cz),C.wall)
+		part(folder,"WestLower",Vector3.new(t,17,(d-12)/2),Vector3.new(cx-w/2,8,cz-(d+12)/4),C.wall)
+		part(folder,"WestUpper",Vector3.new(t,17,(d-12)/2),Vector3.new(cx-w/2,8,cz+(d+12)/4),C.wall)
+		part(folder,"WestLintel",Vector3.new(t,4,12),Vector3.new(cx-w/2,14,cz),C.wall)
+	else
+		part(folder,"WestWall",Vector3.new(t,17,d),Vector3.new(cx-w/2,8,cz),C.wall)
+		part(folder,"EastWall",Vector3.new(t,17,d),Vector3.new(cx+w/2,8,cz),C.wall)
+	end
 	for x=cx-w/2+6,cx+w/2-6,12 do lamp(folder,Vector3.new(x,15.85,cz),C.white) end
 	sign(folder,name:upper(),Vector3.new(cx,11,cz-d/2+0.75),math.min(w-4,24),C.blue)
 	return folder
@@ -81,6 +93,7 @@ end
 
 local function build()
 	local old=Workspace:FindFirstChild(ROOT); if old then old:Destroy() end
+	local baseplate=Workspace:FindFirstChild("Baseplate"); if baseplate then baseplate:Destroy() end
 	local root=Instance.new("Folder"); root.Name=ROOT; root.Parent=Workspace
 
 	-- Bloco principal com perímetro contínuo e um único corredor de entrada controlado.
@@ -102,10 +115,10 @@ local function build()
 	sign(root,"DIMENSÃO ZERO  |  SETOR 01",Vector3.new(0,12,42.9),24,C.white)
 
 	-- Paredes internas delimitam alas; as salas laterais são ambientes completos.
-	room(root,"RECEPÇÃO DE SEGURANÇA",-34, -23,38,34,"South")
-	room(root,"ENFERMARIA",34,-23,38,34,"South")
-	room(root,"ARSENAL",-34,23,38,34,nil)
-	room(root,"SALA DE CONTROLE",34,23,38,34,nil)
+	room(root,"RECEPÇÃO DE SEGURANÇA",-34, -23,38,34,"East")
+	room(root,"ENFERMARIA",34,-23,38,34,"West")
+	room(root,"ARSENAL",-34,23,38,34,"East")
+	room(root,"SALA DE CONTROLE",34,23,38,34,"West")
 
 	-- Corredor central de ligação e zonas funcionais no núcleo.
 	part(root,"CentralWalkway",Vector3.new(28,0.35,72),Vector3.new(0,0.2,0),C.floorAlt,Enum.Material.Metal,false)
@@ -122,11 +135,11 @@ local function build()
 	pointLight(status,C.green,0.6,10)
 
 	-- Manutenção e depósito em compartimentos fechados, acessíveis pelo núcleo.
-	local maintenance=room(root,"MANUTENÇÃO",-34,0,34,24,nil)
+	local maintenance=room(root,"MANUTENÇÃO",-34,0,34,24,"East")
 	for i=1,4 do
 		part(maintenance,"ToolBench",Vector3.new(5,1.2,2),Vector3.new(-44+i*5,1,0),C.dark,Enum.Material.Metal)
 	end
-	local storage=room(root,"DEPÓSITO",34,0,34,24,nil)
+	local storage=room(root,"DEPÓSITO",34,0,34,24,"West")
 	for _,x in ipairs({25,34,43}) do
 		for z=-7,7,7 do
 			part(storage,"SupplyShelf",Vector3.new(1,7,2),Vector3.new(x,3.5,z),C.trim,Enum.Material.Metal)
