@@ -1,329 +1,184 @@
--- HUD, inventario, painel de ajuda e controles desktop/mobile do DIMENSAO ZERO.
+-- Interface principal DZ: inventario E, lanterna F, camera V, ajuda H.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-
 local CameraController = require(script.Parent:WaitForChild("CameraController"))
 local FlashlightController = require(script.Parent:WaitForChild("FlashlightController"))
 
-local HUDController = {}
+local HUD = {}
 local player = Players.LocalPlayer
-local CYAN = Color3.fromRGB(65, 210, 225)
-local PANEL = Color3.fromRGB(10, 17, 25)
-local MUTED = Color3.fromRGB(155, 174, 188)
-local inventoryRequest
-local inventoryPanel
-local helpPanel
-local flashlightButton
-local inventoryButton
-local helpButton
-local cameraButton
-local healthFill
-local healthText
-local inventorySlots = {}
-local inventoryItems = {}
-local equippedItemId = nil
+local palette = {
+	panel=Color3.fromRGB(24,29,34), panel2=Color3.fromRGB(35,41,47),
+	line=Color3.fromRGB(94,108,118), text=Color3.fromRGB(232,236,238),
+	muted=Color3.fromRGB(158,168,174), accent=Color3.fromRGB(111,151,174),
+	good=Color3.fromRGB(92,158,119), danger=Color3.fromRGB(190,75,67),
+}
+local inventoryRemote, inventoryPanel, helpPanel, detailLabel, useButton
+local slots, items = {}, {}
+local selectedIndex = nil
 local panelOpen = nil
-local helpShownThisSession = false
+local buttons = {}
 
-local function create(className, properties, parent)
-    local instance = Instance.new(className)
-    for property, value in properties do
-        instance[property] = value
-    end
-    instance.Parent = parent
-    return instance
+local function make(class, props, parent)
+	local obj=Instance.new(class)
+	for k,v in pairs(props) do obj[k]=v end
+	obj.Parent=parent
+	return obj
 end
-
-local function round(instance, radius)
-    create("UICorner", { CornerRadius = UDim.new(0, radius or 8) }, instance)
+local function style(obj, radius)
+	make("UICorner",{CornerRadius=UDim.new(0,radius or 7)},obj)
+	make("UIStroke",{Color=palette.line,Transparency=0.55,Thickness=1},obj)
 end
-
-local function stroke(instance, color, transparency)
-    create("UIStroke", {
-        Color = color or CYAN,
-        Transparency = transparency or 0.55,
-        Thickness = 1,
-    }, instance)
+local function button(parent,name,text,pos,size)
+	local b=make("TextButton",{Name=name,Text=text,Position=pos,Size=size,
+		BackgroundColor3=palette.panel2,BorderSizePixel=0,TextColor3=palette.text,
+		Font=Enum.Font.GothamSemibold,TextSize=12,AutoButtonColor=true},parent)
+	style(b,7); return b
 end
-
-local function makeButton(parent, name, text, position, size)
-    local button = create("TextButton", {
-        Name = name,
-        Position = position,
-        Size = size,
-        BackgroundColor3 = Color3.fromRGB(18, 55, 72),
-        BorderSizePixel = 0,
-        Font = Enum.Font.GothamBold,
-        Text = text,
-        TextColor3 = Color3.fromRGB(240, 248, 255),
-        TextSize = 12,
-        AutoButtonColor = true,
-    }, parent)
-    round(button, 7)
-    return button
-end
-
-local function animatePanel(panel, visible)
-    panel.Visible = true
-    if visible then
-        panel.BackgroundTransparency = 1
-        TweenService:Create(panel, TweenInfo.new(0.18), { BackgroundTransparency = 0.06 }):Play()
-    else
-        local tween = TweenService:Create(panel, TweenInfo.new(0.14), { BackgroundTransparency = 1 })
-        tween:Play()
-        tween.Completed:Once(function()
-            panel.Visible = false
-        end)
-    end
-end
-
 local function closePanels()
-    if panelOpen == "Inventory" then animatePanel(inventoryPanel, false) end
-    if panelOpen == "Help" then animatePanel(helpPanel, false) end
-    panelOpen = nil
+	if inventoryPanel then inventoryPanel.Visible=false end
+	if helpPanel then helpPanel.Visible=false end
+	panelOpen=nil
+end
+local function openPanel(which)
+	closePanels(); panelOpen=which
+	local panel=which=="Inventory" and inventoryPanel or helpPanel
+	panel.Visible=true; panel.BackgroundTransparency=1
+	TweenService:Create(panel,TweenInfo.new(0.16),{BackgroundTransparency=0.03}):Play()
+	if which=="Inventory" then inventoryRemote:FireServer("Request") end
+end
+local function toggle(which)
+	if panelOpen==which then closePanels() else openPanel(which) end
+end
+local function updateCamera()
+	if buttons.camera then buttons.camera.Text=CameraController.IsFirstPerson() and "1ª PESSOA  [V]" or "3ª PESSOA  [V]" end
+end
+local function updateFlashlight()
+	if buttons.flashlight then buttons.flashlight.Text=FlashlightController.IsEnabled() and "LANTERNA  LIGADA [F]" or "LANTERNA  DESLIGADA [F]" end
+end
+local function renderInventory(data,equipped)
+	items=data or {}
+	for i=1,20 do
+		local item=items[i]
+		local b=slots[i]
+		if item then
+			b.Text=string.format("%02d\n%s\n×%s",i,item.name or item.id,item.quantity or 1)
+			b.BackgroundColor3=(item.id==equipped) and Color3.fromRGB(62,88,103) or palette.panel2
+			b.TextColor3=palette.text
+		else
+			b.Text=string.format("%02d\nVAZIO",i)
+			b.BackgroundColor3=palette.panel
+			b.TextColor3=palette.muted
+		end
+	end
+	if selectedIndex and items[selectedIndex] then
+		local item=items[selectedIndex]
+		detailLabel.Text=item.name.."  |  "..(item.category or "Item").."\n"..(item.description or "")
+		useButton.Visible=item.id=="MEDKIT"
+	else
+		detailLabel.Text="Selecione um item para ver seus detalhes."
+		useButton.Visible=false
+	end
+end
+local function bindHealth(character, healthText, fill)
+	local hum=character:WaitForChild("Humanoid",10); if not hum then return end
+	local function update()
+		local ratio=math.clamp(hum.Health/math.max(hum.MaxHealth,1),0,1)
+		healthText.Text=string.format("VIDA  %d / %d",math.floor(hum.Health+0.5),math.floor(hum.MaxHealth+0.5))
+		fill.Size=UDim2.new(ratio,0,1,0)
+		fill.BackgroundColor3=ratio<=0.25 and palette.danger or (ratio<=0.55 and palette.accent or palette.good)
+	end
+	hum.HealthChanged:Connect(update); hum:GetPropertyChangedSignal("MaxHealth"):Connect(update); update()
 end
 
-local function openPanel(name)
-    closePanels()
-    panelOpen = name
-    if name == "Inventory" then
-        animatePanel(inventoryPanel, true)
-        inventoryRequest:FireServer("Request")
-    elseif name == "Help" then
-        animatePanel(helpPanel, true)
-    end
+function HUD.Init()
+	local guiParent=player:WaitForChild("PlayerGui")
+	local old=guiParent:FindFirstChild("DZ_HUD"); if old then old:Destroy() end
+	local remotes=ReplicatedStorage:WaitForChild("DZ_Remotes")
+	inventoryRemote=remotes:WaitForChild("InventoryRequest")
+	local inventoryUpdate=remotes:WaitForChild("InventoryUpdate")
+	local gui=make("ScreenGui",{Name="DZ_HUD",ResetOnSpawn=false,DisplayOrder=30,IgnoreGuiInset=false},guiParent)
+
+	local status=make("Frame",{Name="Status",AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,16,1,-16),
+		Size=UDim2.fromOffset(260,88),BackgroundColor3=palette.panel,BackgroundTransparency=0.04,BorderSizePixel=0},gui)
+	style(status,9)
+	make("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(13,8),Size=UDim2.new(1,-26,0,17),
+		Text=string.upper(player.DisplayName),TextColor3=palette.text,Font=Enum.Font.GothamBold,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left},status)
+	local healthText=make("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(13,29),Size=UDim2.new(1,-26,0,16),
+		Text="VIDA  100 / 100",TextColor3=palette.good,Font=Enum.Font.GothamMedium,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left},status)
+	local back=make("Frame",{Position=UDim2.fromOffset(13,51),Size=UDim2.new(1,-26,0,8),BackgroundColor3=Color3.fromRGB(12,15,18),BorderSizePixel=0},status)
+	style(back,4)
+	local fill=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=palette.good,BorderSizePixel=0},back); make("UICorner",{CornerRadius=UDim.new(0,4)},fill)
+	make("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(13,66),Size=UDim2.new(1,-26,0,13),
+		Text="SETOR 01  •  OPERADOR",TextColor3=palette.muted,Font=Enum.Font.Gotham,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left},status)
+
+	local actions=make("Frame",{Name="Actions",AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-16,0,16),
+		Size=UDim2.fromOffset(176,174),BackgroundTransparency=1},gui)
+	buttons.inventory=button(actions,"InventoryButton","INVENTÁRIO [E]",UDim2.fromOffset(0,0),UDim2.fromOffset(176,34))
+	buttons.flashlight=button(actions,"FlashlightButton","LANTERNA [F]",UDim2.fromOffset(0,40),UDim2.fromOffset(176,34))
+	buttons.help=button(actions,"HelpButton","AJUDA [?] [H]",UDim2.fromOffset(0,80),UDim2.fromOffset(176,34))
+	buttons.camera=button(actions,"CameraButton","3ª PESSOA [V]",UDim2.fromOffset(0,120),UDim2.fromOffset(176,34))
+
+	inventoryPanel=make("Frame",{Name="InventoryPanel",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),
+		Size=UDim2.new(0.88,0,0,390),BackgroundColor3=palette.panel,BorderSizePixel=0,Visible=false},gui)
+	style(inventoryPanel,10)
+	make("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(18,12),Size=UDim2.new(1,-70,0,27),
+		Text="INVENTÁRIO  /  20 ESPAÇOS",TextColor3=palette.text,Font=Enum.Font.GothamBold,TextSize=17,TextXAlignment=Enum.TextXAlignment.Left},inventoryPanel)
+	local closeInv=button(inventoryPanel,"Close","X",UDim2.new(1,-48,0,10),UDim2.fromOffset(34,30))
+	local grid=make("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(16,54),Size=UDim2.new(1,-32,0,224)},inventoryPanel)
+	make("UIGridLayout",{CellSize=UDim2.new(0.19,0,0,48),CellPadding=UDim2.new(0.012,0,0,7),SortOrder=Enum.SortOrder.LayoutOrder},grid)
+	for i=1,20 do
+		local b=button(grid,"Slot"..i,string.format("%02d\nVAZIO",i),UDim2.new(),UDim2.fromOffset(60,48))
+		b.LayoutOrder=i; b.TextSize=10; slots[i]=b
+		b.Activated:Connect(function()
+			selectedIndex=i
+			local item=items[i]
+			if item then
+				detailLabel.Text=item.name.."  |  "..(item.category or "Item").."\n"..(item.description or "")
+				useButton.Visible=item.id=="MEDKIT"
+				inventoryRemote:FireServer("Equip",i)
+			else
+				detailLabel.Text="Espaço vazio."; useButton.Visible=false
+			end
+		end)
+	end
+	detailLabel=make("TextLabel",{BackgroundTransparency=1,Position=UDim2.new(0,18,0,292),Size=UDim2.new(1,-36,0,48),
+		Text="Selecione um item para ver seus detalhes.",TextColor3=palette.muted,Font=Enum.Font.Gotham,TextSize=11,
+		TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top},inventoryPanel)
+	useButton=button(inventoryPanel,"UseItem","USAR KIT MÉDICO",UDim2.new(1,-172,1,-42),UDim2.fromOffset(154,30))
+	useButton.Visible=false
+	useButton.Activated:Connect(function() if selectedIndex then inventoryRemote:FireServer("Use",selectedIndex) end end)
+	closeInv.Activated:Connect(closePanels)
+
+	helpPanel=make("Frame",{Name="HelpPanel",AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),
+		Size=UDim2.new(0.88,0,0,340),BackgroundColor3=palette.panel,BorderSizePixel=0,Visible=false},gui)
+	style(helpPanel,10)
+	make("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(18,15),Size=UDim2.new(1,-70,0,28),
+		Text="DIMENSÃO ZERO  /  CENTRAL DE CONTROLES",TextColor3=palette.text,Font=Enum.Font.GothamBold,TextSize=15,TextXAlignment=Enum.TextXAlignment.Left},helpPanel)
+	local helpClose=button(helpPanel,"Close","X",UDim2.new(1,-48,0,10),UDim2.fromOffset(34,30))
+	make("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(22,60),Size=UDim2.new(1,-44,1,-78),
+		Text="W A S D   —   Movimentar\nESPAÇO   —   Pular\nMOUSE   —   Câmera\nV   —   Alternar perspectiva\nE   —   Inventário\nF   —   Lanterna\nH   —   Reabrir esta ajuda\nR   —   Recarregar DZ-01\nESC   —   Fechar painéis\n\nNo celular, use os botões na tela e os controles padrão do Roblox.",
+		TextColor3=palette.muted,Font=Enum.Font.Gotham,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top},helpPanel)
+	helpClose.Activated:Connect(closePanels)
+
+	buttons.inventory.Activated:Connect(function() toggle("Inventory") end)
+	buttons.flashlight.Activated:Connect(function() FlashlightController.Toggle(); updateFlashlight() end)
+	buttons.help.Activated:Connect(function() toggle("Help") end)
+	buttons.camera.Activated:Connect(function() CameraController.Toggle(); updateCamera() end)
+	UserInputService.InputBegan:Connect(function(input,processed)
+		if input.KeyCode==Enum.KeyCode.Escape then closePanels(); return end
+		if processed then return end
+		if input.KeyCode==Enum.KeyCode.E then toggle("Inventory")
+		elseif input.KeyCode==Enum.KeyCode.F then FlashlightController.Toggle(); updateFlashlight()
+		elseif input.KeyCode==Enum.KeyCode.H then toggle("Help")
+		elseif input.KeyCode==Enum.KeyCode.V then task.defer(updateCamera) end
+	end)
+	inventoryUpdate.OnClientEvent:Connect(renderInventory)
+	player.CharacterAdded:Connect(function(char) bindHealth(char,healthText,fill) end)
+	if player.Character then task.spawn(bindHealth,player.Character,healthText,fill) end
+	updateCamera(); updateFlashlight()
+	inventoryRemote:FireServer("Request")
+	task.delay(0.8,function() if helpPanel and helpPanel.Parent then openPanel("Help") end end)
 end
-
-local function togglePanel(name)
-    if panelOpen == name then closePanels() else openPanel(name) end
-end
-
-local function updateCameraButton()
-    cameraButton.Text = CameraController.IsFirstPerson() and "CÂMERA: 1ª PESSOA [V]" or "CÂMERA: 3ª PESSOA [V]"
-end
-
-local function updateFlashlightButton()
-    flashlightButton.Text = FlashlightController.IsEnabled() and "LANTERNA: LIGADA [F]" or "LANTERNA: DESLIGADA [F]"
-    flashlightButton.BackgroundColor3 = FlashlightController.IsEnabled()
-        and Color3.fromRGB(20, 105, 112) or Color3.fromRGB(18, 55, 72)
-end
-
-local function updateHealth(humanoid)
-    if not humanoid or not humanoid.Parent then return end
-    local current = math.max(0, humanoid.Health)
-    local maximum = math.max(1, humanoid.MaxHealth)
-    local ratio = math.clamp(current / maximum, 0, 1)
-    healthText.Text = string.format("%d / %d", math.floor(current + 0.5), math.floor(maximum + 0.5))
-    healthFill.Size = UDim2.new(ratio, 0, 1, 0)
-    healthFill.BackgroundColor3 = ratio <= 0.3 and Color3.fromRGB(235, 75, 75)
-        or (ratio <= 0.6 and Color3.fromRGB(235, 170, 65) or CYAN)
-end
-
-local function bindCharacter(character)
-    local humanoid = character:WaitForChild("Humanoid", 10)
-    if not humanoid then return end
-    updateHealth(humanoid)
-    humanoid.HealthChanged:Connect(function() updateHealth(humanoid) end)
-    humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(function() updateHealth(humanoid) end)
-end
-
-local function renderInventory(slots, equippedItem)
-    inventoryItems = slots
-    equippedItemId = equippedItem
-    for index = 1, 20 do
-        local item = slots[index]
-        local button = inventorySlots[index]
-        if item then
-            button.Text = string.format("%02d\n%s\nx%d", index, item.name, item.quantity or 1)
-            button.TextColor3 = Color3.fromRGB(230, 245, 250)
-            button.BackgroundColor3 = item.id == equippedItem
-                and Color3.fromRGB(20, 100, 110) or Color3.fromRGB(24, 35, 47)
-        else
-            button.Text = string.format("%02d\nVAZIO", index)
-            button.TextColor3 = MUTED
-            button.BackgroundColor3 = Color3.fromRGB(16, 25, 35)
-        end
-    end
-end
-
-function HUDController.Init()
-    local playerGui = player:WaitForChild("PlayerGui")
-    local existing = playerGui:FindFirstChild("DZ_HUD")
-    if existing then existing:Destroy() end
-
-    local remotes = ReplicatedStorage:WaitForChild("DZ_Remotes")
-    inventoryRequest = remotes:WaitForChild("InventoryRequest")
-    local inventoryUpdate = remotes:WaitForChild("InventoryUpdate")
-
-    local gui = create("ScreenGui", {
-        Name = "DZ_HUD",
-        ResetOnSpawn = false,
-        IgnoreGuiInset = false,
-        DisplayOrder = 20,
-    }, playerGui)
-
-    local status = create("Frame", {
-        Name = "StatusPanel",
-        AnchorPoint = Vector2.new(0, 1),
-        Position = UDim2.new(0, 14, 1, -14),
-        Size = UDim2.new(0, 245, 0, 88),
-        BackgroundColor3 = PANEL,
-        BackgroundTransparency = 0.08,
-        BorderSizePixel = 0,
-    }, gui)
-    round(status, 9); stroke(status)
-    create("TextLabel", {
-        BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 7),
-        Size = UDim2.new(1, -24, 0, 18), Font = Enum.Font.GothamBold,
-        Text = string.upper(player.DisplayName), TextColor3 = Color3.fromRGB(240, 248, 255),
-        TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
-    }, status)
-    healthText = create("TextLabel", {
-        BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 29),
-        Size = UDim2.new(1, -24, 0, 16), Font = Enum.Font.GothamMedium,
-        Text = "100 / 100", TextColor3 = CYAN, TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, status)
-    local healthBack = create("Frame", {
-        Position = UDim2.fromOffset(12, 51), Size = UDim2.new(1, -24, 0, 9),
-        BackgroundColor3 = Color3.fromRGB(35, 45, 55), BorderSizePixel = 0,
-    }, status)
-    round(healthBack, 5)
-    healthFill = create("Frame", {
-        Size = UDim2.fromScale(1, 1), BackgroundColor3 = CYAN, BorderSizePixel = 0,
-    }, healthBack)
-    round(healthFill, 5)
-    create("TextLabel", {
-        BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 65),
-        Size = UDim2.new(1, -24, 0, 14), Font = Enum.Font.Gotham,
-        Text = "MUNIÇÃO  -- / --     |     SETOR 01", TextColor3 = MUTED,
-        TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left,
-    }, status)
-
-    local actionFrame = create("Frame", {
-        Name = "ActionButtons", AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -14, 0, 14), Size = UDim2.fromOffset(178, 158),
-        BackgroundTransparency = 1,
-    }, gui)
-    inventoryButton = makeButton(actionFrame, "InventoryButton", "INVENTÁRIO [I]", UDim2.fromOffset(0, 0), UDim2.fromOffset(178, 34))
-    flashlightButton = makeButton(actionFrame, "FlashlightButton", "LANTERNA: DESLIGADA [F]", UDim2.fromOffset(0, 40), UDim2.fromOffset(178, 34))
-    helpButton = makeButton(actionFrame, "HelpButton", "?  AJUDA [H]", UDim2.fromOffset(0, 80), UDim2.fromOffset(178, 34))
-    cameraButton = makeButton(actionFrame, "CameraToggle", "CÂMERA: 3ª PESSOA [V]", UDim2.fromOffset(0, 120), UDim2.fromOffset(178, 34))
-
-    -- Inventário responsivo: cinco colunas por quatro linhas.
-    inventoryPanel = create("Frame", {
-        Name = "InventoryPanel", AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(0.9, 0, 0, 330),
-        BackgroundColor3 = PANEL, BackgroundTransparency = 0.06,
-        BorderSizePixel = 0, Visible = false,
-    }, gui)
-    round(inventoryPanel, 12); stroke(inventoryPanel)
-    create("TextLabel", {
-        BackgroundTransparency = 1, Position = UDim2.fromOffset(18, 12),
-        Size = UDim2.new(1, -70, 0, 28), Font = Enum.Font.GothamBold,
-        Text = "INVENTÁRIO  /  20 ESPAÇOS", TextColor3 = CYAN,
-        TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left,
-    }, inventoryPanel)
-    local invClose = makeButton(inventoryPanel, "CloseInventory", "X", UDim2.new(1, -44, 0, 10), UDim2.fromOffset(32, 30))
-    local grid = create("Frame", {
-        BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 54),
-        Size = UDim2.new(1, -32, 1, -70),
-    }, inventoryPanel)
-    create("UIGridLayout", {
-        CellSize = UDim2.new(0.19, 0, 0, 54),
-        CellPadding = UDim2.new(0.01, 0, 0, 8),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-    }, grid)
-    for index = 1, 20 do
-        local slot = makeButton(grid, "Slot" .. index, string.format("%02d\nVAZIO", index), UDim2.new(), UDim2.fromOffset(60, 54))
-        slot.LayoutOrder = index
-        slot.TextSize = 10
-        inventorySlots[index] = slot
-        slot.Activated:Connect(function()
-            local selectedItem = inventoryItems[index]
-            if selectedItem and selectedItem.id == equippedItemId then
-                inventoryRequest:FireServer("Unequip")
-            else
-                inventoryRequest:FireServer("Equip", index)
-            end
-        end)
-    end
-    invClose.Activated:Connect(closePanels)
-
-    helpPanel = create("Frame", {
-        Name = "HelpPanel", AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(0.9, 0, 0, 330),
-        BackgroundColor3 = PANEL, BackgroundTransparency = 0.06,
-        BorderSizePixel = 0, Visible = false,
-    }, gui)
-    round(helpPanel, 12); stroke(helpPanel)
-    create("TextLabel", {
-        BackgroundTransparency = 1, Position = UDim2.fromOffset(20, 15),
-        Size = UDim2.new(1, -70, 0, 25), Font = Enum.Font.GothamBold,
-        Text = "DIMENSÃO ZERO", TextColor3 = CYAN, TextSize = 19,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, helpPanel)
-    create("TextLabel", {
-        BackgroundTransparency = 1, Position = UDim2.fromOffset(20, 43),
-        Size = UDim2.new(1, -40, 0, 22), Font = Enum.Font.Gotham,
-        Text = "CENTRAL DE CONTROLES", TextColor3 = Color3.fromRGB(230, 240, 248),
-        TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
-    }, helpPanel)
-    create("TextLabel", {
-        BackgroundTransparency = 1, Position = UDim2.fromOffset(22, 82),
-        Size = UDim2.new(1, -44, 0, 210), Font = Enum.Font.Gotham,
-        Text = "W A S D   —   Movimentar\nESPAÇO   —   Pular\nMOUSE   —   Movimentar câmera\nV   —   Alternar primeira / terceira pessoa\nI   —   Abrir inventário\nF   —   Ligar / desligar lanterna\nH   —   Abrir este painel\nESC   —   Fechar painéis",
-        TextColor3 = MUTED, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left,
-        TextYAlignment = Enum.TextYAlignment.Top,
-    }, helpPanel)
-    local helpClose = makeButton(helpPanel, "CloseHelp", "X", UDim2.new(1, -48, 0, 12), UDim2.fromOffset(32, 30))
-    helpClose.Activated:Connect(closePanels)
-
-    inventoryButton.Activated:Connect(function() togglePanel("Inventory") end)
-    flashlightButton.Activated:Connect(function()
-        FlashlightController.Toggle()
-        updateFlashlightButton()
-    end)
-    helpButton.Activated:Connect(function() togglePanel("Help") end)
-    cameraButton.Activated:Connect(function()
-        CameraController.Toggle()
-        updateCameraButton()
-    end)
-
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if input.KeyCode == Enum.KeyCode.Escape then
-            closePanels()
-            return
-        end
-        if gameProcessed then return end
-        if input.KeyCode == Enum.KeyCode.I then
-            togglePanel("Inventory")
-        elseif input.KeyCode == Enum.KeyCode.F then
-            FlashlightController.Toggle()
-            updateFlashlightButton()
-        elseif input.KeyCode == Enum.KeyCode.H then
-            togglePanel("Help")
-        elseif input.KeyCode == Enum.KeyCode.V then
-            task.defer(updateCameraButton)
-        end
-    end)
-
-    inventoryUpdate.OnClientEvent:Connect(renderInventory)
-    player.CharacterAdded:Connect(bindCharacter)
-    if player.Character then task.spawn(bindCharacter, player.Character) end
-
-    updateCameraButton()
-    updateFlashlightButton()
-    inventoryRequest:FireServer("Request")
-
-    if not helpShownThisSession then
-        helpShownThisSession = true
-        task.delay(0.7, function()
-            if helpPanel and helpPanel.Parent then openPanel("Help") end
-        end)
-    end
-end
-
-return HUDController
+return HUD
