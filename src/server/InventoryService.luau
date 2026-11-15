@@ -65,6 +65,13 @@ local function makeRifleTool()
 	barrel.Massless = true
 	barrel.CFrame = handle.CFrame * CFrame.new(0, 0.05, -1.45)
 	barrel.Parent = tool
+	local muzzleLight = Instance.new("PointLight")
+	muzzleLight.Name = "DZ_MuzzleFlash"
+	muzzleLight.Color = Color3.fromRGB(255, 205, 130)
+	muzzleLight.Brightness = 3
+	muzzleLight.Range = 7
+	muzzleLight.Enabled = false
+	muzzleLight.Parent = barrel
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = handle
 	weld.Part1 = barrel
