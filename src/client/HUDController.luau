@@ -14,7 +14,7 @@ local palette = {
 	muted=Color3.fromRGB(158,168,174), accent=Color3.fromRGB(111,151,174),
 	good=Color3.fromRGB(92,158,119), danger=Color3.fromRGB(190,75,67),
 }
-local inventoryRemote, inventoryPanel, helpPanel, detailLabel, useButton
+local inventoryRemote, inventoryPanel, helpPanel, detailLabel, useButton, ammoLabel
 local slots, items = {}, {}
 local selectedIndex = nil
 local panelOpen = nil
@@ -112,6 +112,8 @@ function HUD.Init()
 	local fill=make("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=palette.good,BorderSizePixel=0},back); make("UICorner",{CornerRadius=UDim.new(0,4)},fill)
 	make("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(13,66),Size=UDim2.new(1,-26,0,13),
 		Text="SETOR 01  •  OPERADOR",TextColor3=palette.muted,Font=Enum.Font.Gotham,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left},status)
+	ammoLabel=make("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(13,78),Size=UDim2.new(1,-26,0,12),Text="DZ-01  -- / --",TextColor3=palette.muted,Font=Enum.Font.Gotham,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left},status)
+	status.Size=UDim2.fromOffset(260,102)
 
 	local actions=make("Frame",{Name="Actions",AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-16,0,16),
 		Size=UDim2.fromOffset(176,174),BackgroundTransparency=1},gui)
@@ -168,13 +170,21 @@ function HUD.Init()
 	buttons.camera.Activated:Connect(function() CameraController.Toggle(); updateCamera() end)
 	UserInputService.InputBegan:Connect(function(input,processed)
 		if input.KeyCode==Enum.KeyCode.Escape then closePanels(); return end
+		if input.KeyCode==Enum.KeyCode.V then task.defer(updateCamera) end
 		if processed then return end
 		if input.KeyCode==Enum.KeyCode.E then toggle("Inventory")
 		elseif input.KeyCode==Enum.KeyCode.F then FlashlightController.Toggle(); updateFlashlight()
-		elseif input.KeyCode==Enum.KeyCode.H then toggle("Help")
-		elseif input.KeyCode==Enum.KeyCode.V then task.defer(updateCamera) end
+		elseif input.KeyCode==Enum.KeyCode.H then toggle("Help") end
 	end)
 	inventoryUpdate.OnClientEvent:Connect(renderInventory)
+	local function updateAmmo()
+		local mag=player:GetAttribute("DZ_AmmoInMagazine")
+		local reserve=player:GetAttribute("DZ_AmmoReserve")
+		ammoLabel.Text=string.format("DZ-01  %s / %s",tostring(mag or 30),tostring(reserve or 90))
+	end
+	player:GetAttributeChangedSignal("DZ_AmmoInMagazine"):Connect(updateAmmo)
+	player:GetAttributeChangedSignal("DZ_AmmoReserve"):Connect(updateAmmo)
+	updateAmmo()
 	player.CharacterAdded:Connect(function(char) bindHealth(char,healthText,fill) end)
 	if player.Character then task.spawn(bindHealth,player.Character,healthText,fill) end
 	updateCamera(); updateFlashlight()
