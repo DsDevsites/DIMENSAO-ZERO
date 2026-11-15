@@ -121,9 +121,9 @@ local function build()
 	room(root,"SALA DE CONTROLE",34,23,38,34,"West")
 
 	-- Corredor central de ligação e zonas funcionais no núcleo.
-	part(root,"CentralWalkway",Vector3.new(28,0.35,72),Vector3.new(0,0.2,0),C.floorAlt,Enum.Material.Metal,false)
+	part(root,"CentralWalkway",Vector3.new(28,0.04,72),Vector3.new(0,0.02,0),C.floorAlt,Enum.Material.Metal,false)
 	for _,z in ipairs({-30,-10,10,30}) do
-		local strip=part(root,"FloorGuidance",Vector3.new(0.18,0.04,4),Vector3.new(0,0.4,z),C.yellow,Enum.Material.SmoothPlastic,false)
+		local strip=part(root,"FloorGuidance",Vector3.new(0.18,0.02,4),Vector3.new(0,0.05,z),C.yellow,Enum.Material.SmoothPlastic,false)
 	end
 	-- Reator central como elemento industrial decorativo.
 	local reactor=Instance.new("Model"); reactor.Name="REATOR CENTRAL"; reactor.Parent=root
