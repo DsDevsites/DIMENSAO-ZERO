@@ -9,6 +9,6 @@ local CombatConfig = {
 	BodyDamage = 20,
 	HeadshotMultiplier = 2,
 	MaxShotDistance = 500,
-	OriginTolerance = 12,
+	OriginTolerance = 20,
 }
 return table.freeze(CombatConfig)
