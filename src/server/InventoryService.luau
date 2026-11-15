@@ -37,6 +37,10 @@ end
 local function send(player)
 	local slots = inventories[player.UserId]
 	if slots then
+		local ammoItem = slots[3]
+		if ammoItem and ammoItem.id == "AMMO_556" then
+			ammoItem.quantity = player:GetAttribute("DZ_AmmoReserve") or ammoItem.quantity
+		end
 		ReplicatedStorage.DZ_Remotes.InventoryUpdate:FireClient(player, safeSnapshot(slots), player:GetAttribute("DZ_EquippedItem"))
 	end
 end
